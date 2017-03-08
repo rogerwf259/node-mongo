@@ -8,6 +8,7 @@ var { mongoose } = require('./db/mongoose');
 var { Todo } = require('./models/todo');
 var {User} = require('./models/user');
 const {ObjectID} = require('mongodb');
+var {authenticate} = require('./middleware/auth');
 
 
 var app = express();
@@ -91,6 +92,8 @@ app.patch('/todos/:id', (req, res) => {
   })
 });
 
+/* Users route */
+
 app.post('/users', (req, res) => {
   var body = _.pick(req.body, ['email', 'password']);
   var user = new User(body);
@@ -102,19 +105,37 @@ app.post('/users', (req, res) => {
   }).catch((e) => res.status(400).send(e));
 });
 
-app.get('/users/:id', (req, res) => {
-  var id = req.params.id;
-  if (!ObjectID.isValid(id)){
-    return res.status(404).send(console.log('ID is not valid'));
-  }
-  User.findById(id).then((user) => {
-    if (!user){
-      return res.status(404).send();
-    }
-    res.send({user});
+// app.get('/users/:id', (req, res) => {
+//   var id = req.params.id;
+//   if (!ObjectID.isValid(id)){
+//     return res.status(404).send(console.log('ID is not valid'));
+//   }
+//   User.findById(id).then((user) => {
+//     if (!user){
+//       return res.status(404).send();
+//     }
+//     res.send({user});
+//   }).catch((e) => {
+//     res.status(400).send();
+//   });
+// });
+
+
+
+app.get('/users/me', authenticate, (req, res) => {
+  res.send(req.user);
+});
+
+app.post('/users/login', (req, res) => {
+  var body = _.pick(req.body, ['email', 'password']);
+
+  User.findByCredentials(body.email, body.password).then((user) =>{
+    return user.generateAuthToken().then((token) => {
+      res.status(200).header('x-auth', token).send(user);
+    });
   }).catch((e) => {
     res.status(400).send();
-  });
+  })
 });
 
 app.listen(port, () => {
